@@ -12,9 +12,7 @@ const {
 } = process.env;
 const port = process.env.PORT || 5174
 const base = process.env.BASE || '/'
-
-const index_template = await readFile(`./index.html`, 'utf-8');
-
+if (!process.env.PROD) {
 const vite = await createServer({
     server: {
         middlewareMode: true
@@ -23,6 +21,12 @@ const vite = await createServer({
     base,
 })
 app.use(vite.middlewares)
+
+}
+
+
+const index_template = await readFile(`./index.html`, 'utf-8');
+
 
 async function tmdb_get(path) {
     const response = await fetch(`https://api.themoviedb.org/3/${path}`, {
