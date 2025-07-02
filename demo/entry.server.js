@@ -74,13 +74,12 @@ export async function get_common_content() {
 
 function get(path, handler) {
     app.get(path, async (req, res) => {
-        const [template, content, common_content] = await Promise.all([
-            vite.transformIndexHtml(req.originalUrl, index_template),
+        const [content, common_content] = await Promise.all([
             handler(req, res), get_common_content()
         ]);
         res.status(200).set({
             'Content-Type': 'text/html'
-        }).send(template + content + await common_content);
+        }).send(index_template + content + await common_content);
     });
 }
 

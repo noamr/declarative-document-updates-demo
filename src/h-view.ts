@@ -56,8 +56,10 @@ export function initHView() {
             (r instanceof CSSViewTransitionRule) && (r as CSSViewTransitionRule).navigation === "auto"
         )));
         async function navigation_handler() {
-            for (const popover of document.querySelectorAll("*[popover]"))
+            for (const popover of document.querySelectorAll("*[popover]")) {
+                /** @ts-ignore */
                 popover.hidePopover();
+            }
             for (const view of matches) {
                 view.loading = true;
             }

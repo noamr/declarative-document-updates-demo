@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc",
     "preview": "vite preview",
     "start": "node ./demo/entry.server.js",
     "test:browser": "vitest --config=vitest.browser.config.ts"
