@@ -1,0 +1,7 @@
+h-template {
+    display: none;
+}
+
+h-view:not(:state(matching)) {
+    display: none;
+}

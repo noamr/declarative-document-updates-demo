@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="title">Movies</title>
+  <script type="module" src="/demo/entry.client.js"></script>
+  <link rel="stylesheet" href="../src/style.css">
+  <link rel="stylesheet" href="/demo/style.css">
+
+  <!--app-head-->
+</head>
+
+<body>
+  <header>
+    <nav>
+      <a href="/movies">Movies</a>
+      <a href="/people">People</a>
+      <button popovertarget="genres">Genres</button>
+    </nav>
+    <form name="head">
+      <label>Search:
+      <input type="search" name="search">
+      </label>
+    </form>
+  </header>
+  <main>
+    <h-view id="movies" match="/movies"></h-view>
+    <h-view id="people" match="/people"></h-view>
+    <h-view id="genre" match="/genre/:genre"></h-view>
+    <h-view id="person" match="/person/:person"></h-view>
+    <h-view id="movie" match="/movie/:movie"></h-view>
+  </main>
+  <div id="genres" popover>
+
+  </div>
+  <!--app-html-->
+</body>
+
+</html>
