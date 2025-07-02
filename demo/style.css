@@ -58,3 +58,35 @@ ul.grid li a {
     box-shadow: 4px 4px 12px 5px darkolivegreen;
     text-decoration: none;
 }
+
+#genres:popover-open {
+    background: none;
+    border: none;
+}
+#genres:popover-open::before {
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    display: grid;
+    align-items: center;
+    justify-content: center;
+}
+
+#genres ul {
+    background: rgba(0, 32, 0, 0.95);
+    border-radius: 10px;
+    color: white;
+}
+
+#genres li {
+    padding: 5px;
+}
+
+#genres a {
+    font-size: 1.2rem;
+    color: white;
+}
+
+a {
+    text-decoration: none;
+}
