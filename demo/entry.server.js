@@ -154,6 +154,10 @@ get("/movie/:movie/", async req => {
     `;
 });
 
+app.get("/", (req, res) => {
+    res.redirect("/movies");
+})
+
 app.listen(port, () => {
     console.log(`Server started at http://localhost:${port}`)
 });
