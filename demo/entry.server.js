@@ -13,7 +13,7 @@ const {
 const port = process.env.PORT || 5174
 const base = process.env.BASE || '/'
 
-const index_template = await readFile(`${__dirname}/../index.html`, 'utf-8');
+const index_template = await readFile(`./index.html`, 'utf-8');
 
 const vite = await createServer({
     server: {
