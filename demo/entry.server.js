@@ -13,14 +13,14 @@ const {
 const port = process.env.PORT || 5174
 const base = process.env.BASE || '/'
 if (!process.env.PROD) {
-const vite = await createServer({
-    server: {
-        middlewareMode: true
-    },
-    appType: 'custom',
-    base,
-})
-app.use(vite.middlewares)
+    const vite = await createServer({
+        server: {
+            middlewareMode: true
+        },
+        appType: 'custom',
+        base,
+    })
+    app.use(vite.middlewares)
 
 }
 
@@ -35,23 +35,6 @@ async function tmdb_get(path) {
         }
     });
     return await response.json();
-}
-
-async function get_movies(path, view) {
-    const movie_data = await tmdb_get(path);
-    return `<h-template for="${view}">
-        <ul class=grid>
-            ${movie_data.results.map(result => `
-            <li>
-                <a href="/movie/${result.id}">
-                <img width=300 height=450 class=poster src="${image_url(result.poster_path)}"></img>
-                <span class=movie-title>${result.original_title}</span>
-                </a>
-            </li>`).join("")}
-        </ul>
-    </h-template>
-    `;
-
 }
 
 function image_url(path, width = 300) {
@@ -75,38 +58,10 @@ export async function get_common_content() {
     `;
 }
 
-
-function get(path, handler) {
-    app.get(path, async (req, res) => {
-        const [content, common_content] = await Promise.all([
-            handler(req, res), get_common_content()
-        ]);
-        res.status(200).set({
-            'Content-Type': 'text/html'
-        }).send(index_template + content + await common_content);
-    });
-}
-
-get("/movies", async req => {
-    const {
-        q
-    } = req.query;
-    if (q)
-        return get_movies("search/movie?query=" + q, 'movies');
-    else
-        return get_movies("discover/movie", 'movies');
-});
-
-get("/people", async req => {
-    const {
-        q
-    } = req.query;
-    const people_data = q ?
-        await tmdb_get("search/person?query=" + q) :
-        await tmdb_get("person/popular");
-    return `<h-template for=people>
+function people_list(people) {
+    return `
                 <ul class=grid>
-                    ${people_data.results.map(result => `
+                    ${people.map(result => `
                     <li>
                         <a href="/person/${result.id}">
                         <img
@@ -116,25 +71,89 @@ get("/people", async req => {
                         <span class=person>${result.name}</span>
                         </a>
                     </li>`).join("")}
-                </ul>
-            </h-template>`;
+                </ul>`;
+
+}
+
+const common_content = get_common_content();
+
+/**
+ *
+ * @param {import("express").Response} res
+ * @param {string} title
+ */
+function send_header(res, title) {
+    res.status(200);
+    res.writeHead(200, "OK", {
+        'Content-Type': 'text/html'
+    });
+
+    res.write(index_template);
+    res.write(`<h-template for=title>${title}</h-template>`);
+    return common_content.then(c => res.write(c));
+}
+
+function movie_list(list) {
+    return `<ul class=grid>
+            ${list.map(result => `
+            <li>
+                <a href="/movie/${result.id}">
+                <img width=300 height=450 class=poster src="${image_url(result.poster_path)}"></img>
+                <span class=movie-title>${result.original_title}</span>
+                </a>
+            </li>`).join("")}
+        </ul>
+    </h-template>
+    `;
+}
+
+async function get_movies(res, path, view, title) {
+    const movie_data = await tmdb_get(path);
+    const head = send_header(res, title);
+    res.write(`<h-template for=${view}>${movie_list(movie_data.results)}</h-template>`);
+    await head;
+    res.end();
+}
+
+app.get("/movies", (req, res) => {
+    const {
+        q
+    } = req.query;
+    if (q)
+        get_movies(res, "search/movie?query=" + q, 'movies', `Movies: ${q}`);
+    else
+        get_movies(res, "discover/movie", 'movies', 'Movies - popular');
 });
 
-get("/genre/:genre/", async req => {
+app.get("/people", async (req, res) => {
+    const {
+        q
+    } = req.query;
+    const people_data = q ?
+        await tmdb_get("search/person?query=" + q) :
+        await tmdb_get("person/popular");
+    const head = send_header(res, "People");
+    res.write(`<h-template for=people>${people_list(people_data.results)}</h-template>`);
+    await head;
+    res.end();
+});
+
+app.get("/genre/:genre/", async (req, res) => {
     const {
         genres
     } = await genres_promise;
     const genre = genres.find(g => g.id === +req.params.genre);
-    return `
-        <h-template for=title>Movies - ${genre.name}</h-template>
-        ${await get_movies(`discover/movie?with_genres=${genre.id}`, 'genre')}
-    `
+    const head = send_header(res, `Movies - ${genre.name}`);
+    await Promise.all([head, tmdb_get(`discover/movie?with_genres=${genre.id}`).then(({results}) => res.write(`
+        <h-template for=genre>${movie_list(results)}</h-template>
+    `))])
+    res.end();
 });
 
-get("/person/:person/", async req => {
+app.get("/person/:person/", async (req, res) => {
     const person_data = await tmdb_get(`person/${req.params.person}`);
-    return `
-        <h-template for=title>Movies - ${person_data.name}</h-template>
+    const head = send_header(res, `Movies - ${person_data.name}`)
+    res.write(`
         <h-template for="person">
                 <img width=500 height=750 class=full
                     src="${image_url(person_data.profile_path)}"
@@ -143,18 +162,39 @@ get("/person/:person/", async req => {
                 <h2 class=title>${person_data.name}</h2>
             </ul>
         </h-template>
-        `;
+        `);
+    await Promise.all([head, tmdb_get(`person/${req.params.person}/movie_credits`).then(({cast}) => res.write(
+        `<h-template for=credits>${movie_list(cast)}</h-template>`))]);
+    res.end();
 });
 
-get("/movie/:movie/", async req => {
+app.get("/movie/:movie/", async (req, res) => {
+    const credits_promise = tmdb_get(`movie/${req.params.movie}/credits`);
     const movie_data = await tmdb_get(`movie/${req.params.movie}`);
-    return `
-        <h-template for=title>Movies - ${movie_data.title}</h-template>
+    const head = send_header(res, `Movies - ${movie_data.title}`);
+    res.write(`
         <h-template for="movie">
-            <h2 class=title>${movie_data.title}</h2>
-            <img width=500 height=750 class=full src="${image_url(movie_data.poster_path)}"></img>
+            <main class=movie>
+                <h2 class=title>${movie_data.title}</h2>
+                <img width=500 height=750 class=full src="${image_url(movie_data.poster_path)}"></img>
+                <article class=overview>
+                    <p>${movie_data.overview}</p>
+                </article>
+            </main>
         </h-template>
-    `;
+    `);
+
+
+    await Promise.all([head, credits_promise.then(({
+        cast
+    }) => {
+        res.write(`
+            <h-template for="cast">
+                <section class=cast>${people_list(cast)}</section>
+            </h-template>
+        `);
+    })]);
+    res.end();
 });
 
 app.get("/", (req, res) => {

@@ -6,7 +6,7 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title id="title">Movies</title>
-  <script type="module" src="/demo/entry.client.js"></script>
+  <script type="module" src="/demo/entry.client.js" async></script>
   <link rel="stylesheet" href="/src/style.css">
   <link rel="stylesheet" href="/demo/style.css">
 
@@ -27,11 +27,27 @@
     </form>
   </header>
   <main>
-    <h-view id="movies" match="/movies"></h-view>
+    <h-view id="movies" match="/movies">
+    </h-view>
     <h-view id="people" match="/people"></h-view>
     <h-view id="genre" match="/genre/:genre"></h-view>
-    <h-view id="person" match="/person/:person"></h-view>
-    <h-view id="movie" match="/movie/:movie"></h-view>
+    <h-view match="/person/:person">
+      <section id="person">
+
+      </section>
+      <section id="credits">
+
+      </section>
+
+    </h-view>
+    <h-view match="/movie/:movie">
+      <section id="movie">
+
+      </section>
+      <section id="cast">
+
+      </section>
+    </h-view>
   </main>
   <div id="genres" popover>
 
