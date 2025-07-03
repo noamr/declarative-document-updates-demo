@@ -120,26 +120,37 @@ function movie_list(list) {
     `;
 }
 
-async function get_movies(res, path, view, title) {
-    const movie_data = await tmdb_get(path);
-    const head = send_header(res, title);
-    res.write(`<h-template for=${view}>${movie_list(movie_data.results)}</h-template>`);
-    await head;
-    res.end();
+function card({
+    key,
+    title,
+    image,
+    overview
+}) {
+    return `
+        <section class=card style="view-transition-name: ${key}">
+            <h2 class=title>${title}</h2>
+            ${full_image(image, title)}
+            <article class=overview>${overview}</article>
+        </section>
+`;
 }
+
 
 function update(res, id, content) {
     res.write(`<h-template for="${id}">${content}</h-template>`);
 }
 
+async function get_movies(res, path, view, title) {
+    const movie_data = await tmdb_get(path);
+    await Promise.all([send_header(res, title), update(res, view, movie_list(movie_data.results), movie_data.results)]);
+    res.end();
+}
+
 app.get("/movies", (req, res) => {
-    const {
-        q
-    } = req.query;
-    if (q)
-        get_movies(res, "search/movie?query=" + q, 'movies', `Movies: ${q}`);
+    if (req.query.q)
+        get_movies(res, "search/movie?query=" + q, 'movies', `Movies: ${req.query.q}`);
     else
-        get_movies(res, "discover/movie", 'movies', 'Movies - popular');
+        get_movies(res, "discover/movie", 'movies', 'Movies: popular');
 });
 
 app.get("/people", async (req, res) => {
@@ -149,9 +160,10 @@ app.get("/people", async (req, res) => {
     const people_data = q ?
         await tmdb_get("search/person?query=" + q) :
         await tmdb_get("person/popular");
-    const head = send_header(res, "People");
-    res.write(`<h-template for=people>${people_list(people_data.results)}</h-template>`);
-    await head;
+    await Promise.all([
+        send_header(res, "People"),
+        update(res, "people", people_list(people_data.results))
+    ]);
     res.end();
 });
 
@@ -160,23 +172,19 @@ app.get("/genre/:genre/", async (req, res) => {
         genres
     } = await genres_promise;
     const genre = genres.find(g => g.id === +req.params.genre);
-    const head = send_header(res, `Movies - ${genre.name}`);
-    await Promise.all([head, tmdb_get(`discover/movie?with_genres=${genre.id}`).then(data =>
+    await Promise.all([send_header(res, `Movies - ${genre.name}`), tmdb_get(`discover/movie?with_genres=${genre.id}`).then(data =>
         update(res, "genre", movie_list(data.results)))])
     res.end();
 });
 
 app.get("/person/:person/", async (req, res) => {
     const person_data = await tmdb_get(`person/${req.params.person}`);
-    const head = send_header(res, `Movies - ${person_data.name}`);
-    update(res, "person", `
-            <section class=card style="view-transition-name: person-${person_data.id}">
-                <h2 class=title>${person_data.name}</h2>
-                <article class=bio>${person_data.biography}</article>
-                ${full_image(person_data.profile_path, person_data.name)}
-            </section>
-        `);
-    await Promise.all([head, tmdb_get(`person/${req.params.person}/movie_credits`).then(({
+    await Promise.all([send_header(res, `Movies - ${person_data.name}`), update(res, "person", card({
+        title: person_data.name,
+        image: person_data.profile_path,
+        overview: person_data.biography,
+        key: `person-${person_data.id}`
+    })), tmdb_get(`person/${req.params.person}/movie_credits`).then(({
         cast
     }) => update(res, "credits", movie_list(cast)))]);
     res.end();
@@ -185,16 +193,12 @@ app.get("/person/:person/", async (req, res) => {
 app.get("/movie/:movie/", async (req, res) => {
     const credits_promise = tmdb_get(`movie/${req.params.movie}/credits`);
     const movie_data = await tmdb_get(`movie/${req.params.movie}`);
-    const head = send_header(res, `Movies - ${movie_data.title}`);
-    update(res, 'movie', `
-        <section class=card data-id="movie-${movie_data.id}">
-            <h2 class=title>${movie_data.title}</h2>
-            ${full_image(movie_data.poster_path, movie_data.title)}
-            <article class=overview>${movie_data.overview}</article>
-        </section>
-    `);
-
-    await Promise.all([head, credits_promise.then(({
+    await Promise.all([send_header(res, `Movies - ${movie_data.title}`), update(res, 'movie', card({
+        key: `movie-${movie_data.id}`,
+        title: movie_data.title,
+        image: movie_data.poster_path,
+        overview: movie_data.overview
+    })), credits_promise.then(({
         cast
     }) => update(res, "cast", people_list(cast)))]);
     res.end();
