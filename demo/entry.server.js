@@ -41,6 +41,22 @@ function image_url(path, width = 300) {
     return `https://image.tmdb.org/t/p/w${width}${path}`
 }
 
+function full_image(src, alt) {
+    return `<img width=500 height=750 class=hero
+                    src="${image_url(src, 500)}"
+                    alt="${alt}"
+                >
+`
+}
+
+function poster(src, alt) {
+    return `<img width=300 height=450 class=poster
+                    src="${image_url(src, 300)}"
+                    alt="${alt}"
+                >
+`
+}
+
 const genres_promise = tmdb_get("genre/movie/list");
 
 export async function get_common_content() {
@@ -50,7 +66,7 @@ export async function get_common_content() {
     return `<h-template for=genres>
         <ul>
             ${genres.map(result => `
-            <li>
+            <li style="view-transition-name: movie-${result.id}">
                 <a href="/genre/${result.id}">${result.name}</a>
             </li>`).join("")}
         </ul>
@@ -62,13 +78,10 @@ function people_list(people) {
     return `
                 <ul class=grid>
                     ${people.map(result => `
-                    <li>
+                    <li style="view-transition-name: person-${result.id}">
                         <a href="/person/${result.id}">
-                        <img
-                            width=300 height=450 class=poster
-                            src="${image_url(result.profile_path)}"
-                            alt="${result.name} profile image">
-                        <span class=person>${result.name}</span>
+                            ${poster(result.profile_path, result.name)}
+                            <span class=person>${result.name}</span>
                         </a>
                     </li>`).join("")}
                 </ul>`;
@@ -98,7 +111,7 @@ function movie_list(list) {
             ${list.map(result => `
             <li>
                 <a href="/movie/${result.id}">
-                <img width=300 height=450 class=poster src="${image_url(result.poster_path)}"></img>
+                ${poster(result.poster_path, result.original_title)}
                 <span class=movie-title>${result.original_title}</span>
                 </a>
             </li>`).join("")}
@@ -113,6 +126,10 @@ async function get_movies(res, path, view, title) {
     res.write(`<h-template for=${view}>${movie_list(movie_data.results)}</h-template>`);
     await head;
     res.end();
+}
+
+function update(res, id, content) {
+    res.write(`<h-template for="${id}">${content}</h-template>`);
 }
 
 app.get("/movies", (req, res) => {
@@ -144,27 +161,24 @@ app.get("/genre/:genre/", async (req, res) => {
     } = await genres_promise;
     const genre = genres.find(g => g.id === +req.params.genre);
     const head = send_header(res, `Movies - ${genre.name}`);
-    await Promise.all([head, tmdb_get(`discover/movie?with_genres=${genre.id}`).then(({results}) => res.write(`
-        <h-template for=genre>${movie_list(results)}</h-template>
-    `))])
+    await Promise.all([head, tmdb_get(`discover/movie?with_genres=${genre.id}`).then(data =>
+        update(res, "genre", movie_list(data.results)))])
     res.end();
 });
 
 app.get("/person/:person/", async (req, res) => {
     const person_data = await tmdb_get(`person/${req.params.person}`);
-    const head = send_header(res, `Movies - ${person_data.name}`)
-    res.write(`
-        <h-template for="person">
-                <img width=500 height=750 class=full
-                    src="${image_url(person_data.profile_path)}"
-                    alt="${person_data.name}"
-                >
+    const head = send_header(res, `Movies - ${person_data.name}`);
+    update(res, "person", `
+            <section class=card style="view-transition-name: person-${person_data.id}">
                 <h2 class=title>${person_data.name}</h2>
-            </ul>
-        </h-template>
+                <article class=bio>${person_data.biography}</article>
+                ${full_image(person_data.profile_path, person_data.name)}
+            </section>
         `);
-    await Promise.all([head, tmdb_get(`person/${req.params.person}/movie_credits`).then(({cast}) => res.write(
-        `<h-template for=credits>${movie_list(cast)}</h-template>`))]);
+    await Promise.all([head, tmdb_get(`person/${req.params.person}/movie_credits`).then(({
+        cast
+    }) => update(res, "credits", movie_list(cast)))]);
     res.end();
 });
 
@@ -172,28 +186,17 @@ app.get("/movie/:movie/", async (req, res) => {
     const credits_promise = tmdb_get(`movie/${req.params.movie}/credits`);
     const movie_data = await tmdb_get(`movie/${req.params.movie}`);
     const head = send_header(res, `Movies - ${movie_data.title}`);
-    res.write(`
-        <h-template for="movie">
-            <main class=movie>
-                <h2 class=title>${movie_data.title}</h2>
-                <img width=500 height=750 class=full src="${image_url(movie_data.poster_path)}"></img>
-                <article class=overview>
-                    <p>${movie_data.overview}</p>
-                </article>
-            </main>
-        </h-template>
+    update(res, 'movie', `
+        <section class=card data-id="movie-${movie_data.id}">
+            <h2 class=title>${movie_data.title}</h2>
+            ${full_image(movie_data.poster_path, movie_data.title)}
+            <article class=overview>${movie_data.overview}</article>
+        </section>
     `);
-
 
     await Promise.all([head, credits_promise.then(({
         cast
-    }) => {
-        res.write(`
-            <h-template for="cast">
-                <section class=cast>${people_list(cast)}</section>
-            </h-template>
-        `);
-    })]);
+    }) => update(res, "cast", people_list(cast)))]);
     res.end();
 });
 
